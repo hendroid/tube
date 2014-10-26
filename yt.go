@@ -63,7 +63,7 @@ func (c Chan) Format(width int) string {
 	strconv.FormatUint(c.VideoCount, 10), strconv.FormatUint(c.ViewCount, 10))
 }
 
-func (y Yt) GetChannels(ids []string) []ListItem {
+func (y *Yt) GetChannels(ids []string) []ListItem {
 	ret := make([]ListItem, 0)
 	search := y.svc.Channels.List("id,snippet,statistics")
 	search = search.Id(strings.Join(ids, ","))

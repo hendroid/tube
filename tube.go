@@ -56,7 +56,7 @@ func redraw() {
 	tb.Clear(tb.ColorDefault, tb.ColorDefault)
 	w, h := tb.Size()
 	Prints(0, 0, w, tb.ColorDefault, tb.ColorDefault, "Hi there")
-	subs.Draw(0, 1, 50, h-1)
+	subs.Draw(0, 1, w, h-1)
 	tb.Flush()
 }
 

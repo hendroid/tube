@@ -38,7 +38,7 @@ func (l *List) SelectRel(h int) {
 	}
 }
 
-func (l List) Draw(x, y, w, h int) int {
+func (l *List) Draw(x, y, w, h int) int {
 	cy := y
 	for i, c := range l.items {
 		bg := tb.ColorDefault
