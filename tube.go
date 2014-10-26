@@ -1,19 +1,15 @@
 package main
 
 import (
-	"code.google.com/p/google-api-go-client/googleapi/transport"
 	"fmt"
 	"io/ioutil"
 	"encoding/json"
 	"log"
-	"net/http"
 	"reflect"
 	"os"
 	"os/user"
 	"path"
-	"strings"
 	tb "github.com/nsf/termbox-go"
-	yt "code.google.com/p/google-api-go-client/youtube/v3"
 )
 
 type Config struct {
@@ -21,7 +17,10 @@ type Config struct {
 	Subscriptions []string
 }
 
-var svc *yt.Service
+var (
+	yt Yt
+)
+
 var config Config
 var defaultcfg Config = Config{
 	APIKey: "Put your google API key here",
@@ -94,13 +93,8 @@ func main() {
 		log.Fatal("could not parse .tuberc:", err)
 	}
 
-	client := &http.Client{Transport: &transport.APIKey{Key: config.APIKey}}
-	svc, err = yt.New(client)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	refresh()
+	yt = NewTube(config.APIKey)
+	fmt.Println(yt.GetChannels(config.Subscriptions))
 //	if err := tb.Init(); err != nil {
 //		log.Fatal(err)
 //	}
@@ -115,35 +109,7 @@ func main() {
 //		}
 //	}
 
-	_ = svc
-//	search := svc.Search.List("id,snippet").MaxResults(5).Q("auto")
-//
-//	results, err := search.Do()
-//	if err != nil {
-//		log.Fatal(err)
-//	}
-//
-//	for res := range results.Items {
-//		_ = res
-////		(results.Items[res].Id.VideoId, results.Items[res].Snippet)
-//	}
 	if err := configsave(fname, &config); err != nil {
 		log.Fatal(err)
 	}
 }
-
-func refresh() {
-	chansearch := svc.Channels.List("id,snippet")
-	chansearch = chansearch.Id(strings.Join(config.Subscriptions, ","))
-
-	results, err := chansearch.Do()
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	for i := range results.Items {
-		log.Println(results.Items[i].Id, results.Items[i].Snippet.Title)
-	}
-}
-
