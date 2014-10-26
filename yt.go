@@ -4,6 +4,8 @@ import (
 	"code.google.com/p/google-api-go-client/googleapi/transport"
 	"code.google.com/p/google-api-go-client/youtube/v3"
 	"log"
+	"fmt"
+	"strconv"
 	"net/http"
 	"strings"
 )
@@ -43,8 +45,26 @@ func NewTube(APIKey string) Yt {
 ////		(results.Items[res].Id.VideoId, results.Items[res].Snippet)
 //	}
 
-func (y Yt) GetChannels(ids []string) []Chan {
-	ret := make([]Chan, 0)
+func (c Chan) Format(width int) string {
+	wchanmin := len("Channel")
+	wsub := len("Subscribers")
+	wvid := len("Videos") + 3
+	wview := len("Views") + 7
+	wchan := width - 1 - wsub - 1 - wvid - 1 - wview
+	if wchan < wchanmin {
+		return "term too small"
+	}
+
+	f := fmt.Sprintf("%%-%d.%dv %%%d.%dv %%+%d.%dv %%%d.%dv", wchan, wchan,
+	wsub, wsub, wvid, wvid, wview, wview)
+//	line := fmt.Sprintf(f, "Channel", "Subscribers", "Videos", "Views")
+//	Prints(0, y, width, tb.ColorDefault, tb.ColorBlack, line)
+	return fmt.Sprintf(f, c.Title, strconv.FormatUint(c.SubscriberCount, 10),
+	strconv.FormatUint(c.VideoCount, 10), strconv.FormatUint(c.ViewCount, 10))
+}
+
+func (y Yt) GetChannels(ids []string) []ListItem {
+	ret := make([]ListItem, 0)
 	search := y.svc.Channels.List("id,snippet,statistics")
 	search = search.Id(strings.Join(ids, ","))
 
