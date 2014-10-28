@@ -9,7 +9,7 @@ type ListItem interface {
 }
 
 type List struct {
-	cur int
+	cur   int
 	items []ListItem
 }
 
@@ -21,7 +21,7 @@ func Prints(x, y, w int, fg, bg tb.Attribute, msg string) int {
 	cx := x
 	for _, c := range msg {
 		tb.SetCell(cx, y, c, fg, bg)
-		if cx++; cx > x + w {
+		if cx++; cx > x+w {
 			break
 		}
 	}
@@ -29,7 +29,7 @@ func Prints(x, y, w int, fg, bg tb.Attribute, msg string) int {
 }
 
 func (l *List) SelectRel(h int) {
-	if ret := l.cur + h; ret > len(l.items) - 1 {
+	if ret := l.cur + h; ret > len(l.items)-1 {
 		l.cur = len(l.items) - 1
 	} else if ret < 0 {
 		l.cur = 0
@@ -45,8 +45,8 @@ func (l *List) Draw(x, y, w, h int) int {
 		if i == l.cur {
 			bg = tb.ColorBlack
 		}
-		Prints(x, cy, w - x, tb.ColorDefault, bg, c.Format(w - x))
-		if cy++; cy > y + h {
+		Prints(x, cy, w-x, tb.ColorDefault, bg, c.Format(w-x))
+		if cy++; cy > y+h {
 			break
 		}
 	}
