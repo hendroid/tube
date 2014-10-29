@@ -93,7 +93,7 @@ func getVidList(channel string) *List {
 	if l, ok := vids[channel]; ok {
 		return l
 	}
-	vids[channel] = NewList(yt.VideosFromChannel(channel))
+	vids[channel] = NewList(yt.VideosFromChannel(channel), config.VideoListColumns)
 	return vids[channel]
 }
 
@@ -167,7 +167,10 @@ func main() {
 	defer tb.Close()
 	tb.SetInputMode(tb.InputEsc)
 
-	go func() { subs = NewList(yt.GetChannels(config.Subscriptions)); curList = subs }()
+	go func() {
+		subs = NewList(yt.GetChannels(config.Subscriptions), config.ChannelListColumns)
+		curList = subs
+	}()
 	for running {
 		//		redraw()
 		ev := tb.PollEvent()

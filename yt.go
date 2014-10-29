@@ -96,11 +96,14 @@ func getFormats(w uint, cols []ConfigColumn, cache map[uint][]cachedFmt) (ret []
 		}
 		usedWidth += 1 + uint(len(c.HeaderCaption))
 		ret = append(ret, cachedFmt{
-			fmt:   fmt.Sprintf("%%%d.%dv", len(c.HeaderCaption), len(c.HeaderCaption)),
-			field: c.FieldName})
+			fmt:    fmt.Sprintf("%%%d.%dv", len(c.HeaderCaption), len(c.HeaderCaption)),
+			field:  c.FieldName,
+			header: c.HeaderCaption})
 		if c.Pad == "left" || c.Pad == "right" {
-			toPad = append(toPad, paddable{entry: &ret[len(ret)-1],
-				capt: c.HeaderCaption})
+			toPad = append(toPad, paddable{
+				entry: &ret[len(ret)-1],
+				capt:  c.HeaderCaption,
+			})
 		}
 	}
 
@@ -117,14 +120,6 @@ func getFormats(w uint, cols []ConfigColumn, cache map[uint][]cachedFmt) (ret []
 	// update cache and return
 	cache[w] = ret
 	return
-}
-
-func FormatHeader(width uint, conf []ConfigColumn, cache map[uint][]cachedFmt) string {
-	var ret []string
-	for _, t := range getFormats(width, conf, cache) {
-		ret = append(ret, fmt.Sprintf(t.fmt, t.header))
-	}
-	return strings.Join(ret, " ")
 }
 
 func (v Vid) Format(width uint, cache map[uint][]cachedFmt) string {
