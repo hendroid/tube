@@ -4,17 +4,33 @@ import (
 	tb "github.com/nsf/termbox-go"
 )
 
+type cachedFmt struct {
+	fmt    string
+	field  string
+	header string
+}
+
+type paddable struct {
+	entry *cachedFmt
+	capt  string
+}
+
 type ListItem interface {
-	Format(width uint) string
+	Format(width uint, cache map[uint][]cachedFmt) string
 }
 
 type List struct {
-	cur   int
-	items []ListItem
+	cur         int
+	items       []ListItem
+	formatCache map[uint][]cachedFmt
 }
 
-func NewList(items []ListItem) List {
-	return List{0, items}
+func NewList(items []ListItem) (ret *List) {
+	ret = new(List)
+	ret.cur = 0
+	ret.items = items
+	ret.formatCache = make(map[uint][]cachedFmt)
+	return
 }
 
 func Prints(x, y int, w uint, fg, bg tb.Attribute, msg string) int {
@@ -46,7 +62,7 @@ func (l *List) Draw(x, y, w, h int) int {
 			bg = tb.ColorBlack
 		}
 		if w-x > 0 {
-			line := c.Format(uint(w - x))
+			line := c.Format(uint(w-x), l.formatCache)
 			if line == "" {
 				line = "term too small"
 			}

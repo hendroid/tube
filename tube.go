@@ -27,12 +27,12 @@ type Config struct {
 }
 
 var (
-	config   Config
-	yt       Yt
-	subs     List
-	vids     List
-	listVids bool = false
-	running       = true
+	config  Config
+	yt      Yt
+	subs    *List
+	vids    = make(map[string]*List)
+	curList *List
+	running = true
 )
 
 var defaultcfg Config = Config{
@@ -89,25 +89,25 @@ var evhandlers = map[tb.EventType]func(tb.Event){
 	tb.EventResize: resize,
 }
 
+func getVidList(channel string) *List {
+	if l, ok := vids[channel]; ok {
+		return l
+	}
+	vids[channel] = NewList(yt.VideosFromChannel(channel))
+	return vids[channel]
+}
+
 func keydown(ev tb.Event) {
 	if ev.Key == tb.KeyEsc {
 		running = false
 	} else if ev.Key == tb.KeyArrowDown {
-		if listVids {
-			vids.SelectRel(+1)
-		} else {
-			subs.SelectRel(+1)
-		}
+		curList.SelectRel(+1)
 	} else if ev.Key == tb.KeyArrowUp {
-		if listVids {
-			vids.SelectRel(-1)
-		} else {
-			subs.SelectRel(-1)
-		}
+		curList.SelectRel(-1)
 	} else if ev.Key == tb.KeyArrowRight {
-		go func() { vids = NewList(yt.VideosFromChannel(subs.items[subs.cur].(Chan).Id)); listVids = true }()
+		go func() { curList = getVidList(subs.items[subs.cur].(Chan).Id) }()
 	} else if ev.Key == tb.KeyArrowLeft {
-		listVids = false
+		curList = subs
 	}
 	redraw()
 }
@@ -120,11 +120,7 @@ func redraw() {
 	tb.Clear(tb.ColorDefault, tb.ColorDefault)
 	w, h := tb.Size()
 	Prints(0, 0, uint(w), tb.ColorDefault, tb.ColorDefault, "Hi there")
-	if listVids {
-		vids.Draw(0, 1, w, h-1)
-	} else {
-		subs.Draw(0, 1, w, h-1)
-	}
+	curList.Draw(0, 1, w, h-1)
 	tb.Flush()
 }
 
@@ -171,7 +167,7 @@ func main() {
 	defer tb.Close()
 	tb.SetInputMode(tb.InputEsc)
 
-	go func() { subs = NewList(yt.GetChannels(config.Subscriptions)) }()
+	go func() { subs = NewList(yt.GetChannels(config.Subscriptions)); curList = subs }()
 	for running {
 		//		redraw()
 		ev := tb.PollEvent()

@@ -41,22 +41,9 @@ type Vid struct {
 	ViewCount     uint64        // 10 Views
 }
 
-type cachedFmt struct {
-	fmt    string
-	field  string
-	header string
-}
-
-type paddable struct {
-	entry *cachedFmt
-	capt  string
-}
-
 var (
-	chanCache     = make(map[string]interface{})
-	chanFormatStr = make(map[uint][]cachedFmt)
-	vidCache      = make(map[string]interface{})
-	vidFormatStr  = make(map[uint][]cachedFmt)
+	chanCache = make(map[string]interface{})
+	vidCache  = make(map[string]interface{})
 )
 
 type byPrio []ConfigColumn
@@ -140,9 +127,9 @@ func FormatHeader(width uint, conf []ConfigColumn, cache map[uint][]cachedFmt) s
 	return strings.Join(ret, " ")
 }
 
-func (v Vid) Format(width uint) string {
+func (v Vid) Format(width uint, cache map[uint][]cachedFmt) string {
 	var ret []string
-	fmts := getFormats(width, config.VideoListColumns, vidFormatStr)
+	fmts := getFormats(width, config.VideoListColumns, cache)
 
 	for _, t := range fmts {
 		if t.field == "PublishedAt" {
@@ -165,9 +152,9 @@ func (v Vid) Format(width uint) string {
 	return strings.Join(ret, " ")
 }
 
-func (c Chan) Format(width uint) string {
+func (c Chan) Format(width uint, cache map[uint][]cachedFmt) string {
 	var ret []string
-	fmts := getFormats(width, config.ChannelListColumns, chanFormatStr)
+	fmts := getFormats(width, config.ChannelListColumns, cache)
 
 	for _, t := range fmts {
 		if t.field == "SubscriberCount" {
