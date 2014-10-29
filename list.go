@@ -5,7 +5,7 @@ import (
 )
 
 type ListItem interface {
-	Format(width int) string
+	Format(width uint) string
 }
 
 type List struct {
@@ -17,11 +17,11 @@ func NewList(items []ListItem) List {
 	return List{0, items}
 }
 
-func Prints(x, y, w int, fg, bg tb.Attribute, msg string) int {
+func Prints(x, y int, w uint, fg, bg tb.Attribute, msg string) int {
 	cx := x
 	for _, c := range msg {
 		tb.SetCell(cx, y, c, fg, bg)
-		if cx++; cx > x+w {
+		if cx++; cx > x+int(w) {
 			break
 		}
 	}
@@ -45,7 +45,9 @@ func (l *List) Draw(x, y, w, h int) int {
 		if i == l.cur {
 			bg = tb.ColorBlack
 		}
-		Prints(x, cy, w-x, tb.ColorDefault, bg, c.Format(w-x))
+		if w-x > 0 {
+			Prints(x, cy, uint(w-x), tb.ColorDefault, bg, c.Format(uint(w-x)))
+		}
 		if cy++; cy > y+h {
 			break
 		}

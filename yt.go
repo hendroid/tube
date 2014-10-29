@@ -46,12 +46,23 @@ type cachedFmt struct {
 	field string
 }
 
+type paddable struct {
+	entry *cachedFmt
+	capt  string
+}
+
 var (
 	chanCache     = make(map[string]interface{})
 	chanFormatStr = make(map[uint][]cachedFmt)
 	vidCache      = make(map[string]interface{})
 	vidFormatStr  = make(map[uint][]cachedFmt)
 )
+
+type byPrio []ConfigColumn
+
+func (c byPrio) Len() int           { return len(c) }
+func (c byPrio) Swap(i, j int)      { c[i], c[j] = c[j], c[i] }
+func (c byPrio) Less(i, j int) bool { return c[i].Priority > c[j].Priority }
 
 func NewTube(APIKey string) Yt {
 	client := &http.Client{Transport: &transport.APIKey{Key: APIKey}}
@@ -61,30 +72,6 @@ func NewTube(APIKey string) Yt {
 	}
 	return Yt{svc: s}
 }
-
-func (c Chan) Format(width int) string {
-	wchanmin := len("Channel")
-	wsub := len("Subscribers")
-	wvid := len("Videos") + 3
-	wview := len("Views") + 7
-	wchan := width - 1 - wsub - 1 - wvid - 1 - wview
-	if wchan < wchanmin {
-		return "term too small"
-	}
-
-	f := fmt.Sprintf("%%-%d.%dv %%%d.%dv %%%d.%dv %%%d.%dv", wchan, wchan,
-		wsub, wsub, wvid, wvid, wview, wview)
-	//	line := fmt.Sprintf(f, "Channel", "Subscribers", "Videos", "Views")
-	//	Prints(0, y, width, tb.ColorDefault, tb.ColorBlack, line)
-	return fmt.Sprintf(f, c.Title, strconv.FormatUint(c.SubscriberCount, 10),
-		strconv.FormatUint(c.VideoCount, 10), strconv.FormatUint(c.ViewCount, 10))
-}
-
-type byPrio []ConfigColumn
-
-func (c byPrio) Len() int           { return len(c) }
-func (c byPrio) Swap(i, j int)      { c[i], c[j] = c[j], c[i] }
-func (c byPrio) Less(i, j int) bool { return c[i].Priority > c[j].Priority }
 
 // getPrio finds out which the lowest prio column is, which we want to display
 func getPrio(width uint, cols []ConfigColumn) uint {
@@ -105,55 +92,58 @@ func getPrio(width uint, cols []ConfigColumn) uint {
 	return prio
 }
 
-type paddable struct {
-	entry *cachedFmt
-	capt  string
+func getFormats(w uint, cols []ConfigColumn, cache map[uint][]cachedFmt) (ret []cachedFmt) {
+	var toPad []paddable
+	var usedWidth uint = 0
+
+	// retrieve cache if possible
+	if fmts, ok := cache[w]; ok {
+		return fmts
+	}
+
+	leastPrio := getPrio(w, cols)
+	for _, c := range cols {
+		if c.Priority < leastPrio {
+			continue
+		}
+		usedWidth += 1 + uint(len(c.HeaderCaption))
+		ret = append(ret, cachedFmt{
+			fmt:   fmt.Sprintf("%%%d.%dv", len(c.HeaderCaption), len(c.HeaderCaption)),
+			field: c.FieldName})
+		if c.Pad == "left" || c.Pad == "right" {
+			toPad = append(toPad, paddable{entry: &ret[len(ret)-1],
+				capt: c.HeaderCaption})
+		}
+	}
+
+	// fix the fields that need padding
+	for _, c := range toPad {
+		p := ""
+		if c.capt[0] != ' ' {
+			p = "-"
+		}
+		l := (w-(usedWidth-1))/uint(len(toPad)) + uint(len(c.capt))
+		c.entry.fmt = fmt.Sprintf("%%%v%d.%dv", p, l, l)
+	}
+
+	// update cache and return
+	cache[w] = ret
+	return
 }
 
-func (v Vid) Format(width int) string {
-	var fmts []cachedFmt
-	var ok bool
-	if width <= 0 {
-		return ""
-	}
-	w := uint(width)
-	if fmts, ok = vidFormatStr[w]; !ok {
-		var toPad []paddable
-		leastPrio := getPrio(w, config.VideoListColumns)
-		var usedWidth uint = 0
-		for _, c := range config.VideoListColumns {
-			if c.Priority < leastPrio {
-				fmts = append(fmts, cachedFmt{fmt: "%0.0v", field: c.FieldName})
-				continue
-			}
-			usedWidth += 1 + uint(len(c.HeaderCaption))
-			fmts = append(fmts, cachedFmt{
-				fmt:   fmt.Sprintf("%%%d.%dv", len(c.HeaderCaption), len(c.HeaderCaption)),
-				field: c.FieldName})
-			if c.Pad == "left" || c.Pad == "right" {
-				toPad = append(toPad, paddable{entry: &fmts[len(fmts)-1],
-					capt: c.HeaderCaption})
-			}
-		}
-
-		// fix the fields that need padding
-		for _, c := range toPad {
-			p := ""
-			if c.capt[0] != ' ' {
-				p = "-"
-			}
-			l := (w-(usedWidth-1))/uint(len(toPad)) + uint(len(c.capt))
-			c.entry.fmt = fmt.Sprintf("%%%v%d.%dv", p, l, l)
-		}
-		vidFormatStr[w] = fmts
-	}
-
+func (v Vid) Format(width uint) string {
 	var ret []string
+	fmts := getFormats(width, config.VideoListColumns, vidFormatStr)
+
+	if len(fmts) == 0 {
+		return "term too small"
+	}
+
 	for _, t := range fmts {
 		if t.field == "PublishedAt" {
 			val := v.PublishedAt.Format("2006-01-02")
 			ret = append(ret, fmt.Sprintf(t.fmt, val))
-		} else if t.field == "Views" {
+		} else if t.field == "ViewCount" {
 			val := strconv.FormatUint(v.ViewCount, 10)
 			ret = append(ret, fmt.Sprintf(t.fmt, val))
 		} else if t.field == "LikePercentage" {
@@ -167,14 +157,38 @@ func (v Vid) Format(width int) string {
 			ret = append(ret, fmt.Sprintf(t.fmt, v.ChannelTitle))
 		}
 	}
+	ret = append(ret, "omg")
+	return strings.Join(ret, " ")
+}
 
+func (c Chan) Format(width uint) string {
+	var ret []string
+	fmts := getFormats(width, config.ChannelListColumns, chanFormatStr)
+
+	if len(fmts) == 0 {
+		return "term too small"
+	}
+
+	for _, t := range fmts {
+		if t.field == "SubscriberCount" {
+			val := strconv.FormatUint(c.SubscriberCount, 10)
+			ret = append(ret, fmt.Sprintf(t.fmt, val))
+		} else if t.field == "ViewCount" {
+			val := strconv.FormatUint(c.ViewCount, 10)
+			ret = append(ret, fmt.Sprintf(t.fmt, val))
+		} else if t.field == "VideoCount" {
+			val := strconv.FormatUint(c.VideoCount, 10)
+			ret = append(ret, fmt.Sprintf(t.fmt, val))
+		} else if t.field == "Title" {
+			ret = append(ret, fmt.Sprintf(t.fmt, c.Title))
+		}
+	}
 	return strings.Join(ret, " ")
 }
 
 // retrieveCache gets all ListItem from cache with a valid id. The ids of
 // entries that could not be found in Cache are appended to unmatched.
-func retrieveCache(ids []string, cache map[string]interface{}, unmatched *[]string) []ListItem {
-	var ret []ListItem
+func retrieveCache(ids []string, cache map[string]interface{}, unmatched *[]string) (ret []ListItem) {
 	for _, id := range ids {
 		if v, ok := cache[id]; ok {
 			ret = append(ret, v.(ListItem))
@@ -182,7 +196,7 @@ func retrieveCache(ids []string, cache map[string]interface{}, unmatched *[]stri
 			*unmatched = append(*unmatched, id)
 		}
 	}
-	return ret
+	return
 }
 
 func (y *Yt) VideosFromChannel(channel string) []ListItem {

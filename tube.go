@@ -19,11 +19,11 @@ type ConfigColumn struct {
 }
 
 type Config struct {
-	APIKey           string
-	Subscriptions    []string
-	VideoListColumns []ConfigColumn
-	ListChannels     []ConfigColumn
-	ListPlaylists    []ConfigColumn
+	APIKey              string
+	Subscriptions       []string
+	VideoListColumns    []ConfigColumn
+	ChannelListColumns  []ConfigColumn
+	PlaylistListColumns []ConfigColumn
 }
 
 var (
@@ -45,7 +45,7 @@ var defaultcfg Config = Config{
 			Priority:  8},
 		{HeaderCaption: "     Views",
 			Pad:       "",
-			FieldName: "Views",
+			FieldName: "ViewCount",
 			Priority:  6},
 		{HeaderCaption: "Like%",
 			Pad:       "",
@@ -55,7 +55,7 @@ var defaultcfg Config = Config{
 			Pad:       "",
 			FieldName: "Duration",
 			Priority:  10},
-		{HeaderCaption: "Title     ",
+		{HeaderCaption: "Title          ",
 			Pad:       "right",
 			FieldName: "Title",
 			Priority:  10},
@@ -63,6 +63,24 @@ var defaultcfg Config = Config{
 			Pad:       "left",
 			FieldName: "ChannelTitle",
 			Priority:  2},
+	},
+	ChannelListColumns: []ConfigColumn{
+		{HeaderCaption: " Subscribers",
+			Pad:       "",
+			FieldName: "SubscriberCount",
+			Priority:  4},
+		{HeaderCaption: "       Views",
+			Pad:       "",
+			FieldName: "ViewCount",
+			Priority:  6},
+		{HeaderCaption: "   Videos",
+			Pad:       "",
+			FieldName: "VideoCount",
+			Priority:  8},
+		{HeaderCaption: "Title     ",
+			Pad:       "right",
+			FieldName: "Title",
+			Priority:  10},
 	},
 }
 
@@ -101,7 +119,7 @@ func resize(ev tb.Event) {
 func redraw() {
 	tb.Clear(tb.ColorDefault, tb.ColorDefault)
 	w, h := tb.Size()
-	Prints(0, 0, w, tb.ColorDefault, tb.ColorDefault, "Hi there")
+	Prints(0, 0, uint(w), tb.ColorDefault, tb.ColorDefault, "Hi there")
 	if listVids {
 		vids.Draw(0, 1, w, h-1)
 	} else {
