@@ -11,24 +11,60 @@ import (
 	"reflect"
 )
 
+type ConfigColumn struct {
+	HeaderCaption string
+	Pad           string
+	FieldName     string
+	Priority      uint
+}
+
 type Config struct {
-	APIKey        string
-	Subscriptions []string
+	APIKey           string
+	Subscriptions    []string
+	VideoListColumns []ConfigColumn
+	ListChannels     []ConfigColumn
+	ListPlaylists    []ConfigColumn
 }
 
 var (
+	config   Config
 	yt       Yt
 	subs     List
 	vids     List
 	listVids bool = false
+	running       = true
 )
 
-var config Config
 var defaultcfg Config = Config{
 	APIKey:        "Put your google API key here",
-	Subscriptions: []string{"zimbel", "auto"},
+	Subscriptions: []string{"UC3XTzVzaHQEd30rQbuvCtTQ", "UC-lHJZR3Gqxm24_Vd_AJ5Yw"},
+	VideoListColumns: []ConfigColumn{
+		{HeaderCaption: " Published",
+			Pad:       "",
+			FieldName: "PublishedAt",
+			Priority:  8},
+		{HeaderCaption: "     Views",
+			Pad:       "",
+			FieldName: "Views",
+			Priority:  6},
+		{HeaderCaption: "Like%",
+			Pad:       "",
+			FieldName: "LikePercentage",
+			Priority:  4},
+		{HeaderCaption: " Duration",
+			Pad:       "",
+			FieldName: "Duration",
+			Priority:  10},
+		{HeaderCaption: "Title     ",
+			Pad:       "right",
+			FieldName: "Title",
+			Priority:  10},
+		{HeaderCaption: "      User",
+			Pad:       "left",
+			FieldName: "ChannelTitle",
+			Priority:  2},
+	},
 }
-var running = true
 
 var evhandlers = map[tb.EventType]func(tb.Event){
 	tb.EventKey:    keydown,
@@ -73,32 +109,6 @@ func redraw() {
 	}
 	tb.Flush()
 }
-
-//func drawlist(y int, items []Chan) {
-//	w, h := tb.Size()
-//	wchanmin := len("Channel")
-//	wsub := len("Subscribers")
-//	wvid := len("Videos") + 3
-//	wview := len("Views") + 7
-//	wchan := w - 1 - wsub - 1 - wvid - 1 - wview
-//	if wchan < wchanmin {
-//		Prints(0, 0, w, tb.ColorDefault, tb.ColorDefault, "term to small")
-//		return
-//	}
-//
-//	f := fmt.Sprintf("%%-%d.%dv %%%d.%dv %%+%d.%dv %%%d.%dv", wchan, wchan, wsub, wsub, wvid, wvid, wview, wview)
-//	line := fmt.Sprintf(f, "Channel", "Subscribers", "Videos", "Views")
-//	Prints(0, y, w, tb.ColorDefault, tb.ColorBlack, line)
-//	y++
-//	for _, c := range items {
-//		line = fmt.Sprintf(f, c.Title, strconv.FormatUint(c.SubscriberCount, 10), strconv.FormatUint(c.VideoCount, 10), strconv.FormatUint(c.ViewCount, 10))
-//		Prints(0, y, w, tb.ColorDefault, tb.ColorDefault, line)
-//		y++
-//		if y >= h {
-//			break
-//		}
-//	}
-//}
 
 func configsave(filename string, cfg *Config) error {
 	j, err := json.MarshalIndent(cfg, "", "\t")

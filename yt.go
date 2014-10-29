@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -16,33 +17,40 @@ type Yt struct {
 }
 
 type Chan struct {
-	Description     string
-	Id              string
-	SubsHidden      bool
-	SubscriberCount uint64
-	Title           string
-	VideoCount      uint64
-	ViewCount       uint64
+	Description     string // NOT DISPLAYED
+	Id              string // NOT DISPLAYED
+	SubsHidden      bool   // NOT DISPLAYED
+	SubscriberCount uint64 // 12 Subscribers
+	Title           string // 10+ Title
+	VideoCount      uint64 // 9 Videos
+	ViewCount       uint64 // 12 Views
 }
 
 type Vid struct {
-	ChannelId     string
-	ChannelTitle  string
-	CommentCount  uint64
-	Description   string
-	DislikeCount  uint64
-	Duration      time.Duration
-	FavoriteCount uint64
-	Id            string
-	LikeCount     uint64
-	PublishedAt   time.Time
-	Title         string
-	ViewCount     uint64
+	ChannelId     string        // NOT DISPLAYED
+	ChannelTitle  string        // +10 User
+	CommentCount  uint64        // NOT DISPLAYED
+	Description   string        // NOT DISPLAYED
+	DislikeCount  uint64        // 5 Like%
+	Duration      time.Duration // 9 Duration
+	FavoriteCount uint64        // NOT DISPLAYED
+	Id            string        // NOT DISPLAYED
+	LikeCount     uint64        // 5 Like%
+	PublishedAt   time.Time     // 10 Published
+	Title         string        // 10+ Title
+	ViewCount     uint64        // 10 Views
+}
+
+type cachedFmt struct {
+	fmt   string
+	field string
 }
 
 var (
-	chancache = make(map[string]interface{})
-	vidcache  = make(map[string]interface{})
+	chanCache     = make(map[string]interface{})
+	chanFormatStr = make(map[uint][]cachedFmt)
+	vidCache      = make(map[string]interface{})
+	vidFormatStr  = make(map[uint][]cachedFmt)
 )
 
 func NewTube(APIKey string) Yt {
@@ -64,7 +72,7 @@ func (c Chan) Format(width int) string {
 		return "term too small"
 	}
 
-	f := fmt.Sprintf("%%-%d.%dv %%%d.%dv %%+%d.%dv %%%d.%dv", wchan, wchan,
+	f := fmt.Sprintf("%%-%d.%dv %%%d.%dv %%%d.%dv %%%d.%dv", wchan, wchan,
 		wsub, wsub, wvid, wvid, wview, wview)
 	//	line := fmt.Sprintf(f, "Channel", "Subscribers", "Videos", "Views")
 	//	Prints(0, y, width, tb.ColorDefault, tb.ColorBlack, line)
@@ -72,10 +80,99 @@ func (c Chan) Format(width int) string {
 		strconv.FormatUint(c.VideoCount, 10), strconv.FormatUint(c.ViewCount, 10))
 }
 
-func (v Vid) Format(width int) string {
-	return "hi there"
+type byPrio []ConfigColumn
+
+func (c byPrio) Len() int           { return len(c) }
+func (c byPrio) Swap(i, j int)      { c[i], c[j] = c[j], c[i] }
+func (c byPrio) Less(i, j int) bool { return c[i].Priority > c[j].Priority }
+
+// getPrio finds out which the lowest prio column is, which we want to display
+func getPrio(width uint, cols []ConfigColumn) uint {
+	tmp := make([]ConfigColumn, len(cols), (cap(cols)+1)*2)
+	copy(tmp, cols)
+	sort.Sort(byPrio(tmp))
+
+	var prio, lastPrio, clen uint = ^uint(0), ^uint(0), 0
+	for _, c := range tmp {
+		if c.Priority < prio {
+			lastPrio = prio
+		}
+		prio = c.Priority
+		if clen += 1 + uint(len(c.HeaderCaption)); clen > width+1 {
+			return lastPrio
+		}
+	}
+	return prio
 }
 
+type paddable struct {
+	entry *cachedFmt
+	capt  string
+}
+
+func (v Vid) Format(width int) string {
+	var fmts []cachedFmt
+	var ok bool
+	if width <= 0 {
+		return ""
+	}
+	w := uint(width)
+	if fmts, ok = vidFormatStr[w]; !ok {
+		var toPad []paddable
+		leastPrio := getPrio(w, config.VideoListColumns)
+		var usedWidth uint = 0
+		for _, c := range config.VideoListColumns {
+			if c.Priority < leastPrio {
+				fmts = append(fmts, cachedFmt{fmt: "%0.0v", field: c.FieldName})
+				continue
+			}
+			usedWidth += 1 + uint(len(c.HeaderCaption))
+			fmts = append(fmts, cachedFmt{
+				fmt:   fmt.Sprintf("%%%d.%dv", len(c.HeaderCaption), len(c.HeaderCaption)),
+				field: c.FieldName})
+			if c.Pad == "left" || c.Pad == "right" {
+				toPad = append(toPad, paddable{entry: &fmts[len(fmts)-1],
+					capt: c.HeaderCaption})
+			}
+		}
+
+		// fix the fields that need padding
+		for _, c := range toPad {
+			p := ""
+			if c.capt[0] != ' ' {
+				p = "-"
+			}
+			l := (w-(usedWidth-1))/uint(len(toPad)) + uint(len(c.capt))
+			c.entry.fmt = fmt.Sprintf("%%%v%d.%dv", p, l, l)
+		}
+		vidFormatStr[w] = fmts
+	}
+
+	var ret []string
+	for _, t := range fmts {
+		if t.field == "PublishedAt" {
+			val := v.PublishedAt.Format("2006-01-02")
+			ret = append(ret, fmt.Sprintf(t.fmt, val))
+		} else if t.field == "Views" {
+			val := strconv.FormatUint(v.ViewCount, 10)
+			ret = append(ret, fmt.Sprintf(t.fmt, val))
+		} else if t.field == "LikePercentage" {
+			val := strconv.FormatUint(v.LikeCount*100/(v.LikeCount+v.DislikeCount), 10)
+			ret = append(ret, fmt.Sprintf(t.fmt, val))
+		} else if t.field == "Duration" {
+			ret = append(ret, fmt.Sprintf(t.fmt, v.Duration.String()))
+		} else if t.field == "Title" {
+			ret = append(ret, fmt.Sprintf(t.fmt, v.Title))
+		} else if t.field == "ChannelTitle" {
+			ret = append(ret, fmt.Sprintf(t.fmt, v.ChannelTitle))
+		}
+	}
+
+	return strings.Join(ret, " ")
+}
+
+// retrieveCache gets all ListItem from cache with a valid id. The ids of
+// entries that could not be found in Cache are appended to unmatched.
 func retrieveCache(ids []string, cache map[string]interface{}, unmatched *[]string) []ListItem {
 	var ret []ListItem
 	for _, id := range ids {
@@ -110,7 +207,7 @@ func (y *Yt) VideosFromChannel(channel string) []ListItem {
 
 func (y *Yt) GetVideos(ids []string) []ListItem {
 	var toFetch []string
-	ret := retrieveCache(ids, vidcache, &toFetch)
+	ret := retrieveCache(ids, vidCache, &toFetch)
 	if 0 == len(toFetch) {
 		return ret
 	}
@@ -145,7 +242,7 @@ func (y *Yt) GetVideos(ids []string) []ListItem {
 			PublishedAt:   pubat,
 			Title:         v.Snippet.Title,
 			ViewCount:     v.Statistics.ViewCount}
-		chancache[v.Id] = c
+		chanCache[v.Id] = c
 		ret = append(ret, c)
 	}
 	return ret
@@ -153,7 +250,7 @@ func (y *Yt) GetVideos(ids []string) []ListItem {
 
 func (y *Yt) GetChannels(ids []string) []ListItem {
 	var toFetch []string
-	ret := retrieveCache(ids, chancache, &toFetch)
+	ret := retrieveCache(ids, chanCache, &toFetch)
 	if 0 == len(toFetch) {
 		return ret
 	}
@@ -175,7 +272,7 @@ func (y *Yt) GetChannels(ids []string) []ListItem {
 			SubsHidden:      v.Statistics.HiddenSubscriberCount,
 			VideoCount:      v.Statistics.VideoCount,
 			ViewCount:       v.Statistics.ViewCount}
-		chancache[v.Id] = c
+		chanCache[v.Id] = c
 		ret = append(ret, c)
 	}
 	return ret
