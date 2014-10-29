@@ -42,8 +42,9 @@ type Vid struct {
 }
 
 type cachedFmt struct {
-	fmt   string
-	field string
+	fmt    string
+	field  string
+	header string
 }
 
 type paddable struct {
@@ -131,13 +132,17 @@ func getFormats(w uint, cols []ConfigColumn, cache map[uint][]cachedFmt) (ret []
 	return
 }
 
+func FormatHeader(width uint, conf []ConfigColumn, cache map[uint][]cachedFmt) string {
+	var ret []string
+	for _, t := range getFormats(width, conf, cache) {
+		ret = append(ret, fmt.Sprintf(t.fmt, t.header))
+	}
+	return strings.Join(ret, " ")
+}
+
 func (v Vid) Format(width uint) string {
 	var ret []string
 	fmts := getFormats(width, config.VideoListColumns, vidFormatStr)
-
-	if len(fmts) == 0 {
-		return "term too small"
-	}
 
 	for _, t := range fmts {
 		if t.field == "PublishedAt" {
@@ -157,17 +162,12 @@ func (v Vid) Format(width uint) string {
 			ret = append(ret, fmt.Sprintf(t.fmt, v.ChannelTitle))
 		}
 	}
-	ret = append(ret, "omg")
 	return strings.Join(ret, " ")
 }
 
 func (c Chan) Format(width uint) string {
 	var ret []string
 	fmts := getFormats(width, config.ChannelListColumns, chanFormatStr)
-
-	if len(fmts) == 0 {
-		return "term too small"
-	}
 
 	for _, t := range fmts {
 		if t.field == "SubscriberCount" {

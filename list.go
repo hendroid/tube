@@ -46,7 +46,11 @@ func (l *List) Draw(x, y, w, h int) int {
 			bg = tb.ColorBlack
 		}
 		if w-x > 0 {
-			Prints(x, cy, uint(w-x), tb.ColorDefault, bg, c.Format(uint(w-x)))
+			line := c.Format(uint(w - x))
+			if line == "" {
+				line = "term too small"
+			}
+			Prints(x, cy, uint(w-x), tb.ColorDefault, bg, line)
 		}
 		if cy++; cy > y+h {
 			break
