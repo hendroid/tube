@@ -144,9 +144,6 @@ func (l List) draw(a Area) int {
 
 	// print header
 	line := l.header.String(uint(a.Width))
-	if line == "" {
-		line = "term too small"
-	}
 	printLine(a.X, a.Y, uint(a.Width), tb.ColorDefault, tb.ColorDefault, line)
 	if ly++; ly > a.Height || len(l.data) == 0 {
 		return a.Y + ly
@@ -160,9 +157,6 @@ func (l List) draw(a Area) int {
 			bg = tb.ColorBlack
 		}
 		line := l.data[i].String(uint(a.Width))
-		if line == "" {
-			line = "term too small"
-		}
 		printLine(a.X, a.Y+ly, uint(a.Width), tb.ColorDefault, bg, line)
 	}
 	for ; ly < a.Height; ly++ {
