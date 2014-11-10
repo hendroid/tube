@@ -15,11 +15,26 @@ type List struct {
 	Draw    chan<- Area
 	Event   chan<- Event
 	header  ListItem
+	cols    Colors
 	data    []ListItem
 	sel     uint
 	// How many lines are displayed above the currently selected one.
 	pageOffset uint
 	sortFuncs  map[rune]By
+}
+
+type Colors struct {
+	Fg     tb.Attribute
+	Bg     tb.Attribute
+	FgHead tb.Attribute
+	BgHead tb.Attribute
+	FgSel  tb.Attribute
+	BgSel  tb.Attribute
+}
+
+type Event struct {
+	ev            tb.Event
+	nextReceivers []chan<- Event
 }
 
 type Area struct {
@@ -30,31 +45,26 @@ type Area struct {
 	Done   chan<- int
 }
 
-type Event struct {
-	ev            tb.Event
-	nextReceivers []chan<- Event
-}
-
 type By func(i1, i2 *ListItem) bool
 
 type sorter struct {
-	items []ListItem
-	by    By
+	it []ListItem
+	by By
 }
 
-func (s *sorter) Len() int           { return len(s.items) }
-func (s *sorter) Swap(i, j int)      { s.items[i], s.items[j] = s.items[j], s.items[i] }
-func (s *sorter) Less(i, j int) bool { return s.by(&s.items[i], &s.items[j]) }
+func (s *sorter) Len() int           { return len(s.it) }
+func (s *sorter) Swap(i, j int)      { s.it[i], s.it[j] = s.it[j], s.it[i] }
+func (s *sorter) Less(i, j int) bool { return s.by(&s.it[i], &s.it[j]) }
 
 func (by By) sort(items []ListItem) {
 	is := &sorter{
-		items: items,
-		by:    by,
+		it: items,
+		by: by,
 	}
 	sort.Sort(is)
 }
 
-func New(header ListItem) (ret *List) {
+func New(header ListItem, colors Colors) (ret *List) {
 	cSort := make(chan rune)
 	cData := make(chan []ListItem)
 	cDraw := make(chan Area)
@@ -65,6 +75,7 @@ func New(header ListItem) (ret *List) {
 		Draw:       cDraw,
 		Event:      cEvent,
 		header:     header,
+		cols:       colors,
 		data:       make([]ListItem, 0),
 		sel:        0,
 		pageOffset: 0,
@@ -144,7 +155,7 @@ func (l List) draw(a Area) int {
 
 	// print header
 	line := l.header.String(uint(a.Width))
-	printLine(a.X, a.Y, uint(a.Width), tb.ColorDefault, tb.ColorDefault, line)
+	printLine(a.X, a.Y, uint(a.Width), l.cols.FgHead, l.cols.BgHead, line)
 	if ly++; ly > a.Height || len(l.data) == 0 {
 		return a.Y + ly
 	}
@@ -152,15 +163,15 @@ func (l List) draw(a Area) int {
 	// print entries
 	var i = l.sel - l.pageOffset
 	for ; i < uint(len(l.data)) && ly < a.Height; i, ly = i+1, ly+1 {
-		bg := tb.ColorDefault
+		fg, bg := l.cols.Fg, l.cols.Bg
 		if i == l.sel {
-			bg = tb.ColorBlack
+			fg, bg = l.cols.FgSel, l.cols.BgSel
 		}
 		line := l.data[i].String(uint(a.Width))
-		printLine(a.X, a.Y+ly, uint(a.Width), tb.ColorDefault, bg, line)
+		printLine(a.X, a.Y+ly, uint(a.Width), fg, bg, line)
 	}
 	for ; ly < a.Height; ly++ {
-		printLine(a.X, a.Y+ly, uint(a.Width), tb.ColorDefault, tb.ColorDefault, "padding")
+		printLine(a.X, a.Y+ly, uint(a.Width), l.cols.Fg, l.cols.Bg, "padding")
 	}
 	return a.Y + ly
 }
